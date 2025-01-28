@@ -53,6 +53,7 @@ SPI_HandleTypeDef hspi1;
 SPI_HandleTypeDef hspi3;
 
 TIM_HandleTypeDef htim16;
+TIM_HandleTypeDef htim17;
 
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart1;
@@ -80,6 +81,7 @@ static void MX_USART2_UART_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_USB_OTG_FS_USB_Init(void);
 static void MX_TIM16_Init(void);
+static void MX_TIM17_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -134,8 +136,10 @@ int main(void)
   MX_USART3_UART_Init();
   MX_USB_OTG_FS_USB_Init();
   MX_TIM16_Init();
+  MX_TIM17_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim16);
+  HAL_TIM_Base_Start_IT(&htim17);
 
   /* USER CODE END 2 */
 
@@ -589,6 +593,38 @@ static void MX_TIM16_Init(void)
 }
 
 /**
+  * @brief TIM17 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM17_Init(void)
+{
+
+  /* USER CODE BEGIN TIM17_Init 0 */
+
+  /* USER CODE END TIM17_Init 0 */
+
+  /* USER CODE BEGIN TIM17_Init 1 */
+
+  /* USER CODE END TIM17_Init 1 */
+  htim17.Instance = TIM17;
+  htim17.Init.Prescaler = 1249;
+  htim17.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim17.Init.Period = 11999;
+  htim17.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim17.Init.RepetitionCounter = 0;
+  htim17.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim17) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM17_Init 2 */
+
+  /* USER CODE END TIM17_Init 2 */
+
+}
+
+/**
   * @brief UART4 Initialization Function
   * @param None
   * @retval None
@@ -939,9 +975,11 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-uint32_t adc_result = 0;
+volatile uint32_t adc_result = 0;
+volatile uint8_t adc_result_cleared = 1; // 1 when current value was sent to uart, 0 when value is not yet sent
 volatile uint8_t adc_sampling_1000hz = 1; // 1 when 1000hz
-uint8_t sampling_rate_divider = 0; // flip every time the timer trigger to split the frequency in two for 1000hz mode
+volatile uint8_t sampling_rate_divider = 0; // flip every time the timer trigger to split the frequency in two for 1000hz mode
+volatile uint8_t acquisition_ON = 1; // 1 when acquisition is ongoing, 0 when it is not
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
@@ -950,9 +988,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   }
 }
 
+volatile  GPIO_PinState led_1_2_state = GPIO_PIN_RESET;
+
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-  if (htim == &htim16 )
+  if (htim == &htim16 && acquisition_ON)
   {
 	  sampling_rate_divider = !sampling_rate_divider;
 
@@ -961,14 +1001,27 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		  HAL_ADC_Start_IT(&hadc1);
 	  }
   }
-}
+  else if (htim == &htim17)
+  {
+	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, led_1_2_state);
+	  led_1_2_state = GPIO_PIN_SET;
+	  if(acquisition_ON)
+		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, led_1_2_state);
 
+	  if(led_1_2_state == GPIO_PIN_SET)
+		  led_1_2_state = GPIO_PIN_RESET;
+	  else led_1_2_state = GPIO_PIN_SET;
+  }
+}
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* h)
 {
 
 	if(h == &hadc1)
 	{
+		if(!adc_result_cleared)
+			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_SET);
+
 		adc_result = HAL_ADC_GetValue(&hadc1);
 	}
 }
