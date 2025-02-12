@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include "stm32l4s5i_iot01.h"
 #include "stm32l4s5i_iot01_tsensor.h"
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -1018,8 +1019,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		}
 		else
 		{
-			adc_result_cleared = 0;
 			HAL_ADC_Start_IT(&hadc1);
+			adc_result_cleared = 0;
 		}
 	  }
   }
@@ -1035,18 +1036,22 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   }
   else if (htim == &htim7)
   {
-	  temp_value = BSP_TSENSOR_ReadTemp();
-	  uint8_t encoded_temp = (uint8_t) (temp_value/2);
-	  encoded_temp |= TEMPERATURE_CHANNEL_MASK;
-	  if(uart_transmission_in_processing == 1)
-		{
-			HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_SET);
-		}
-	  else
+	  if(acquisition_ON)
 	  {
-		  //uart_transmission_in_processing = 1;
-		  //HAL_UART_Transmit_IT(&huart1, &encoded_temp,1);
+		  temp_value = BSP_TSENSOR_ReadTemp();
+		  uint8_t encoded_temp = (uint8_t) (temp_value/2);
+		  encoded_temp |= TEMPERATURE_CHANNEL_MASK;
+		  if(uart_transmission_in_processing == 1)
+			{
+				HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_SET);
+			}
+		  else
+		  {
+			  uart_transmission_in_processing = 1;
+			  HAL_UART_Transmit_IT(&huart1, &encoded_temp,1);
+		  }
 	  }
+
   }
 }
 
@@ -1056,6 +1061,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* h)
 	if(h == &hadc1)
 	{
 		adc_result = HAL_ADC_GetValue(&hadc1);
+		adc_result_cleared = 1;
 
 		uint8_t encoded_sound = (uint8_t) (adc_result/2);
 		encoded_sound &= SOUND_CHANNEL_MASK;
@@ -1067,7 +1073,6 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* h)
 		{
 			uart_transmission_in_processing = 1;
 			HAL_UART_Transmit_IT(&huart1, &encoded_sound,1);
-			adc_result_cleared = 1;
 		}
 	}
 }
@@ -1079,6 +1084,21 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 		uart_transmission_in_processing = 0;
 	}
 }
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	if(huart == &huart1)
+	{
+		uint8_t received_data;
+		HAL_UART_Receive_IT(huart, &received_data, 1);
+
+		if(received_data == 's')
+			acquisition_ON = 1;
+		if(received_data == 'x')
+			acquisition_ON = 0;
+	}
+}
+
 
 /* USER CODE END 4 */
 
