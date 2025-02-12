@@ -23,7 +23,6 @@
 /* USER CODE BEGIN Includes */
 #include "stm32l4s5i_iot01.h"
 #include "stm32l4s5i_iot01_tsensor.h"
-#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -63,6 +62,7 @@ UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
+uint8_t received_data;
 
 /* USER CODE END PV */
 
@@ -140,7 +140,7 @@ int main(void)
   MX_TIM17_Init();
   MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
-
+  HAL_UART_Receive_IT(&huart1, &received_data, 1);
   BSP_TSENSOR_Init();
   HAL_TIM_Base_Start_IT(&htim16);
   HAL_TIM_Base_Start_IT(&htim17);
@@ -989,8 +989,8 @@ static void MX_GPIO_Init(void)
 volatile uint32_t adc_result = 0;
 volatile uint8_t adc_result_cleared = 1; // 1 when current value was sent to uart, 0 when value is not yet sent
 volatile uint8_t adc_sampling_1000hz = 1; // 1 when 1000hz
-volatile uint8_t sampling_rate_divider = 0; // flip every time the timer trigger to split the frequency in two for 1000hz mode
-volatile uint8_t acquisition_ON = 1; // 1 when acquisition is ongoing, 0 when it is not
+volatile uint8_t sampling_rate_divider = 1; // flip every time the timer trigger to split the frequency in two for 1000hz mode
+volatile uint8_t acquisition_ON = 0; // 1 when acquisition is ongoing, 0 when it is not
 volatile float temp_value = 0;
 #define TEMPERATURE_CHANNEL_MASK  0x01  // 0000 0001
 #define SOUND_CHANNEL_MASK  0xFE  // 1111 1110
@@ -1011,7 +1011,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   {
 	  sampling_rate_divider = !sampling_rate_divider;
 
-	  if(!adc_sampling_1000hz || sampling_rate_divider)
+	  if((!adc_sampling_1000hz) || ((sampling_rate_divider != 0) && adc_sampling_1000hz))
 	  {
 		if(!adc_result_cleared)
 		{
@@ -1089,15 +1089,20 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	if(huart == &huart1)
 	{
-		uint8_t received_data;
-		HAL_UART_Receive_IT(huart, &received_data, 1);
 
 		if(received_data == 's')
 			acquisition_ON = 1;
 		if(received_data == 'x')
+		{
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
 			acquisition_ON = 0;
+		}
+
+		HAL_UART_Receive_IT(huart, &received_data, 1);
 	}
 }
+
+
 
 
 /* USER CODE END 4 */

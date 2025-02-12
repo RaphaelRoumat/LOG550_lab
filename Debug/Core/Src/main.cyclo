@@ -17,8 +17,8 @@
 ../Core/Src/main.c:827:13:MX_USB_OTG_FS_USB_Init	1
 ../Core/Src/main.c:848:13:MX_GPIO_Init	1
 ../Core/Src/main.c:999:6:HAL_GPIO_EXTI_Callback	2
-../Core/Src/main.c:1008:6:HAL_TIM_PeriodElapsedCallback	12
+../Core/Src/main.c:1008:6:HAL_TIM_PeriodElapsedCallback	13
 ../Core/Src/main.c:1058:6:HAL_ADC_ConvCpltCallback	3
 ../Core/Src/main.c:1080:6:HAL_UART_TxCpltCallback	2
 ../Core/Src/main.c:1088:6:HAL_UART_RxCpltCallback	4
-../Core/Src/main.c:1109:6:Error_Handler	1
+../Core/Src/main.c:1114:6:Error_Handler	1
